@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: quiz
+      POSTGRES_USER: quiz
+      POSTGRES_PASSWORD: quiz
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz -d quiz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env.example
+    environment:
+      # переопределяйте в реальном .env (в проде не храните секреты в репо)
+      DATABASE_URL: postgresql+asyncpg://quiz:quiz@postgres:5432/quiz
+      REDIS_URL: redis://redis:6379/0
+      COOKIE_SECURE: "false"
+      FRONTEND_ORIGINS: "http://localhost:5173,http://localhost:4173"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: ./infra/nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      # сюда положить fullchain.pem/privkey.pem для HTTPS
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+      # опционально: если вы соберёте фронт и положите в ./dist
+      - ./dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
