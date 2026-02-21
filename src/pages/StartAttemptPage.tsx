@@ -4,6 +4,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { api } from "@/lib/api";
+import { ApiError } from "@/lib/api/errors";
 import type { AttemptStatus } from "@/lib/api/types";
 
 export function StartAttemptPage() {
@@ -21,7 +22,13 @@ export function StartAttemptPage() {
         if (r.attempt_status === "in_progress") nav("/play", { replace: true });
         if (r.attempt_status === "finished" || r.attempt_status === "forced_finished") nav("/result", { replace: true });
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          nav("/register", { replace: true });
+          return;
+        }
+        setError(e instanceof Error ? e.message : String(e));
+      });
   }, [nav]);
 
   const start = async () => {
@@ -33,6 +40,10 @@ export function StartAttemptPage() {
       if (res.status === "in_progress") nav("/play");
       else nav("/result");
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        nav("/register", { replace: true });
+        return;
+      }
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setStarting(false);

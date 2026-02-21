@@ -2,11 +2,13 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { api } from "@/lib/api";
+import { ApiError } from "@/lib/api/errors";
 import { normalizeVkUrl, titleCaseRu, normalizeGroup, normalizeSpaces } from "@/lib/validation";
 
 const fioWord = "[А-ЯЁа-яё]+(?:-[А-ЯЁа-яё]+)*";
@@ -33,6 +35,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function RegisterPage() {
   const nav = useNavigate();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -40,8 +43,18 @@ export function RegisterPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
-    await api.registerParticipant({ fio: values.fio, group: values.group, vk_url: values.vk_url });
-    nav("/start");
+    setSubmitError(null);
+    try {
+      await api.registerParticipant({ fio: values.fio, group: values.group, vk_url: values.vk_url });
+      nav("/start", { replace: true });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        const detail = (e.body as any)?.detail;
+        setSubmitError(typeof detail === "string" ? detail : `Ошибка регистрации (HTTP ${e.status})`);
+      } else {
+        setSubmitError(e instanceof Error ? e.message : String(e));
+      }
+    }
   };
 
   return (
@@ -51,6 +64,8 @@ export function RegisterPage() {
         <p className="mt-1 text-sm text-slate-600">Данные сохраняются на сервере. Прохождение квиза — только один раз.</p>
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          {submitError ? <Alert variant="danger">{submitError}</Alert> : null}
+
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-900">ФИО</label>
             <Input placeholder="Иванов Иван Иванович" autoComplete="name" {...register("fio")} />

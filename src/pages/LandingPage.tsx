@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { ActiveQuizResponse } from "@/lib/api/types";
+import type { ActiveQuizResponse, MeRole } from "@/lib/api/types";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
-import { isRegistered } from "@/lib/session";
 
 export function LandingPage() {
   const nav = useNavigate();
   const [data, setData] = useState<ActiveQuizResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<MeRole>("anonymous");
 
   useEffect(() => {
     let mounted = true;
+
     api
       .getActiveQuiz()
       .then((d) => mounted && setData(d))
       .catch((e) => mounted && setError(e instanceof Error ? e.message : String(e)));
+
+    api
+      .me()
+      .then((r) => mounted && setRole(r.role))
+      .catch(() => mounted && setRole("anonymous"));
+
     return () => {
       mounted = false;
     };
@@ -51,13 +58,15 @@ export function LandingPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!isRegistered() ? (
-              <Button onClick={() => nav("/register")}>Регистрация</Button>
-            ) : (
+            {role === "participant" ? (
               <>
                 <Button onClick={() => nav("/start")}>К старту</Button>
-                <Button variant="secondary" onClick={() => nav("/leaderboard")}>Лидерборд</Button>
+                <Button variant="secondary" onClick={() => nav("/leaderboard")}>
+                  Лидерборд
+                </Button>
               </>
+            ) : (
+              <Button onClick={() => nav("/register")}>Регистрация</Button>
             )}
           </div>
         </div>
@@ -74,8 +83,15 @@ export function LandingPage() {
         </div>
 
         {error ? (
-          <div className="mt-4">
+          <div className="mt-4 space-y-2">
             <Alert variant="danger">Не удалось получить состояние квиза: {error}</Alert>
+            <Alert variant="info">
+              <div className="font-medium">Как быстро проверить, что backend запущен</div>
+              <div className="mt-1 text-xs">
+                Откройте в браузере: <span className="font-mono">http://127.0.0.1:8000/api/health</span>. Если не открывается —
+                сервер не запущен/не слушает порт 8000.
+              </div>
+            </Alert>
           </div>
         ) : null}
       </Card>

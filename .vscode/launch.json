@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: Uvicorn (no reload)",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}/backend",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "env": {
+        "DEMO_SEED": "true"
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "Backend: Uvicorn (reload)",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}/backend",
+      "args": ["app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "env": {
+        "DEMO_SEED": "true"
+      },
+      "justMyCode": true
+    }
+  ]
+}

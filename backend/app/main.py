@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app.api.router import api_router
@@ -82,17 +83,45 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+    # CORS нужен если фронт запущен отдельным dev-сервером (Vite на :5173).
+    # На Windows часто путают localhost и 127.0.0.1, а Origin должен совпасть ТОЧНО.
     origins = [o.strip() for o in (settings.frontend_origins or "").split(",") if o.strip()]
-    if origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,
-            allow_credentials=True,
-            allow_methods=["*"] ,
-            allow_headers=["*"],
-        )
+
+    # В dev разрешаем запросы с localhost/127.0.0.1 на любых портах, а также Origin: null
+    # (например, если кто-то открыл dist/index.html через file://).
+    allow_origin_regex = None
+    if settings.environment == "dev":
+        allow_origin_regex = r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?)$|^null$"
+
+    # Всегда подключаем CORS: если origin не разрешён — CORSMiddleware сам отклонит.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=allow_origin_regex,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
+    )
 
     app.include_router(api_router)
+
+    # Опционально раздаём собранный фронт из dist/ без nginx/docker.
+    # ВНИМАНИЕ: app.mount("/", ...) должен быть ПОСЛЕ include_router, иначе он перехватит /api/*.
+    if settings.serve_static:
+        from pathlib import Path
+
+        static_dir = Path(settings.static_dir)
+        # Если запускают из корня репозитория, static_dir="../dist" не найдётся.
+        # Поэтому пробуем несколько вариантов.
+        candidates = [
+            static_dir,
+            Path(__file__).resolve().parents[2] / "dist",  # repo/dist
+            Path(__file__).resolve().parents[3] / "dist",  # fallback
+        ]
+        dist = next((p for p in candidates if p.exists() and p.is_dir()), None)
+        if dist is not None:
+            app.mount("/", StaticFiles(directory=str(dist), html=True), name="static")
+
     return app
 
 

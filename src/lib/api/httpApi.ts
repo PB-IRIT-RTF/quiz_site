@@ -17,14 +17,21 @@ import type {
 } from "@/lib/api/types";
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
+  const url = `${API_BASE}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      ...init,
+    });
+  } catch (e) {
+    // В браузере "Failed to fetch" часто означает: backend не запущен, CORS, mixed-content, неверный URL.
+    throw new Error(`Network error: ${String(e)} (url=${url})`);
+  }
 
   const contentType = res.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");

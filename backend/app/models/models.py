@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,7 +23,8 @@ from app.models.enums import AttemptStatus, MediaKind, MediaSourceType, Question
 class Quiz(Base):
     __tablename__ = "quizzes"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # IMPORTANT for SQLite: use Integer PK for autoincrement/rowid
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -27,7 +38,7 @@ class Participant(Base):
     __tablename__ = "participants"
     __table_args__ = (UniqueConstraint("fio_norm", "group_norm", name="uq_participants_fio_group"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     fio_raw: Mapped[str] = mapped_column(Text, nullable=False)
     fio_norm: Mapped[str] = mapped_column(Text, nullable=False)
     group_raw: Mapped[str] = mapped_column(Text, nullable=False)
@@ -41,7 +52,7 @@ class AdminUser(Base):
     __tablename__ = "admin_users"
     __table_args__ = (UniqueConstraint("username", name="uq_admin_users_username"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -52,11 +63,9 @@ class Attempt(Base):
     __tablename__ = "attempts"
     __table_args__ = (UniqueConstraint("quiz_id", "participant_id", name="uq_attempt_quiz_participant"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    quiz_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False)
-    participant_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("participants.id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False)
+    participant_id: Mapped[int] = mapped_column(Integer, ForeignKey("participants.id", ondelete="CASCADE"), nullable=False)
 
     status: Mapped[AttemptStatus] = mapped_column(Enum(AttemptStatus, name="attempt_status"), nullable=False)
 
@@ -74,8 +83,8 @@ class Question(Base):
     __tablename__ = "questions"
     __table_args__ = (UniqueConstraint("quiz_id", "order", name="uq_questions_quiz_order"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    quiz_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False)
     order: Mapped[int] = mapped_column(Integer, nullable=False)
     type: Mapped[QuestionType] = mapped_column(Enum(QuestionType, name="question_type"), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -91,10 +100,8 @@ class Question(Base):
 class Option(Base):
     __tablename__ = "options"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    question_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
@@ -104,10 +111,8 @@ class Option(Base):
 class TextAnswerRule(Base):
     __tablename__ = "text_answer_rules"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    question_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
     match_type: Mapped[TextMatchType] = mapped_column(Enum(TextMatchType, name="text_match_type"), nullable=False)
     pattern: Mapped[str] = mapped_column(Text, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -118,15 +123,11 @@ class TextAnswerRule(Base):
 class QuestionMedia(Base):
     __tablename__ = "question_media"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    question_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
 
     kind: Mapped[MediaKind] = mapped_column(Enum(MediaKind, name="media_kind"), nullable=False)
-    source_type: Mapped[MediaSourceType] = mapped_column(
-        Enum(MediaSourceType, name="media_source_type"), nullable=False
-    )
+    source_type: Mapped[MediaSourceType] = mapped_column(Enum(MediaSourceType, name="media_source_type"), nullable=False)
 
     url: Mapped[str] = mapped_column(Text, nullable=False)
     mime: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -140,13 +141,13 @@ class AttemptAnswer(Base):
     __tablename__ = "attempt_answers"
     __table_args__ = (UniqueConstraint("attempt_id", "question_id", name="uq_attempt_answers_attempt_question"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    attempt_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("attempts.id", ondelete="CASCADE"), nullable=False)
-    question_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    attempt_id: Mapped[int] = mapped_column(Integer, ForeignKey("attempts.id", ondelete="CASCADE"), nullable=False)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
 
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    answer_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    answer_json: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     awarded_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

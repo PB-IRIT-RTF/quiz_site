@@ -1,20 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: quiz
-      POSTGRES_USER: quiz
-      POSTGRES_PASSWORD: quiz
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quiz -d quiz"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   redis:
     image: redis:7-alpine
     ports:
@@ -31,16 +15,16 @@ services:
     env_file:
       - ./backend/.env.example
     environment:
-      # переопределяйте в реальном .env (в проде не храните секреты в репо)
-      DATABASE_URL: postgresql+asyncpg://quiz:quiz@postgres:5432/quiz
+      # SQLite (файл внутри контейнера). Для сохранения между перезапусками — volume ниже.
+      DATABASE_URL: sqlite+aiosqlite:///./data/quiz.db
       REDIS_URL: redis://redis:6379/0
       COOKIE_SECURE: "false"
       FRONTEND_ORIGINS: "http://localhost:5173,http://localhost:4173"
+    volumes:
+      - backend_data:/app/data
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -59,4 +43,4 @@ services:
       - backend
 
 volumes:
-  pgdata:
+  backend_data:
