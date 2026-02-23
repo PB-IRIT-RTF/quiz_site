@@ -1,1 +1,20 @@
+# Node
 node_modules/
+
+# Python virtual envs
+.venv/
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+dist/
+
+# Runtime data
+backend/data/*.db
+
+# Local env files
+.env
+backend/.env
