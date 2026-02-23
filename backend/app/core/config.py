@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     admin_login_rate_limit_window_seconds: int = Field(default=300, validation_alias="ADMIN_LOGIN_RATE_LIMIT_WINDOW_SECONDS")
     admin_login_rate_limit_max_attempts: int = Field(default=10, validation_alias="ADMIN_LOGIN_RATE_LIMIT_MAX_ATTEMPTS")
     admin_login_rate_limit_block_seconds: int = Field(default=900, validation_alias="ADMIN_LOGIN_RATE_LIMIT_BLOCK_SECONDS")
+    admin_trust_x_forwarded_for: bool = Field(default=False, validation_alias="ADMIN_TRUST_X_FORWARDED_FOR")
 
     embed_allowed_hosts: str = Field(
         default="vk.com,www.vk.com,rutube.ru,www.rutube.ru,player.vimeo.com,dzen.ru,www.dzen.ru",

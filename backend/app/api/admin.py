@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from io import StringIO
 import csv
+import logging
 from collections import deque
 from time import monotonic
 
@@ -38,12 +39,14 @@ from app.services.auth import (
     get_admin_from_cookie,
 )
 from app.services.media import validate_media_url
-from app.services.security import verify_password
+from app.services.security import hash_password, verify_password
 
 
 router = APIRouter(prefix="/admin")
+logger = logging.getLogger(__name__)
 _LOGIN_ATTEMPTS: dict[str, deque[float]] = {}
 _LOGIN_BLOCKED_UNTIL: dict[str, float] = {}
+_DUMMY_PASSWORD_HASH = hash_password("not-the-admin-password")
 
 
 # ------------------------
@@ -55,6 +58,8 @@ def require_admin(
     admin_csrf: str | None = Cookie(default=None, alias=ADMIN_CSRF_COOKIE_NAME),
     x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
 ) -> None:
+    # Block all admin API requests from blocked IPs (not only /login).
+    _rate_limit_check(request)
     if not get_admin_from_cookie(admin_token):
         raise HTTPException(status_code=403, detail="admin_required")
     if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
@@ -64,7 +69,7 @@ def require_admin(
 
 def _client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for")
-    if xff:
+    if settings.admin_trust_x_forwarded_for and xff:
         return xff.split(",")[0].strip() or "unknown"
     return request.client.host if request.client else "unknown"
 
@@ -92,11 +97,24 @@ def _rate_limit_check(request: Request) -> None:
         raise HTTPException(status_code=429, detail=f"too_many_attempts_retry_in_{block_for}s")
 
 
-def _record_login_failure(request: Request) -> None:
+def _record_login_failure(request: Request) -> bool:
     ip = _client_ip(request)
     now = monotonic()
+    window = max(1, int(settings.admin_login_rate_limit_window_seconds))
+    limit = max(1, int(settings.admin_login_rate_limit_max_attempts))
+    block_for = max(1, int(settings.admin_login_rate_limit_block_seconds))
     attempts = _LOGIN_ATTEMPTS.setdefault(ip, deque())
+
+    window_start = now - window
+    while attempts and attempts[0] < window_start:
+        attempts.popleft()
+
     attempts.append(now)
+    if len(attempts) >= limit:
+        _LOGIN_BLOCKED_UNTIL[ip] = now + block_for
+        attempts.clear()
+        return True
+    return False
 
 
 def _clear_login_failures(request: Request) -> None:
@@ -136,18 +154,34 @@ async def admin_login(
         await db.execute(select(AdminUser).where(AdminUser.username == "admin", AdminUser.is_active.is_(True)))
     ).scalar_one_or_none()
     if user is None:
-        _record_login_failure(request)
-        raise HTTPException(status_code=403, detail="admin_not_configured")
+        blocked_now = _record_login_failure(request)
+        # Keep timing close to valid-user path to reduce user-enumeration side channels.
+        verify_password(payload.password, _DUMMY_PASSWORD_HASH)
+        logger.warning("admin_login_failed reason=invalid_credentials ip=%s", _client_ip(request))
+        if blocked_now:
+            block_for = max(1, int(settings.admin_login_rate_limit_block_seconds))
+            raise HTTPException(status_code=429, detail=f"too_many_attempts_retry_in_{block_for}s")
+        raise HTTPException(status_code=403, detail="invalid_credentials")
 
     if not verify_password(payload.password, user.password_hash):
-        _record_login_failure(request)
-        raise HTTPException(status_code=403, detail="bad_password")
+        blocked_now = _record_login_failure(request)
+        logger.warning("admin_login_failed reason=invalid_credentials ip=%s", _client_ip(request))
+        if blocked_now:
+            block_for = max(1, int(settings.admin_login_rate_limit_block_seconds))
+            raise HTTPException(status_code=429, detail=f"too_many_attempts_retry_in_{block_for}s")
+        raise HTTPException(status_code=403, detail="invalid_credentials")
 
     _clear_login_failures(request)
     token = create_admin_token()
     csrf = create_csrf_token()
     response.set_cookie(key=ADMIN_COOKIE_NAME, value=token, **cookie_params())
     response.set_cookie(key=ADMIN_CSRF_COOKIE_NAME, value=csrf, **csrf_cookie_params())
+    logger.info(
+        "admin_login_success username=%s ip=%s ua=%s",
+        user.username,
+        _client_ip(request),
+        (request.headers.get("user-agent") or "-")[:256],
+    )
     return AdminLoginResponse()
 
 
@@ -495,8 +529,8 @@ async def update_question(question_id: int, payload: QuestionUpdateRequest, db: 
         q.text = payload.text
     if payload.points is not None:
         q.points = int(payload.points)
-    if payload.time_limit_seconds is not None or payload.time_limit_seconds is None:
-        # allow explicit null
+    if "time_limit_seconds" in payload.model_fields_set:
+        # update only when field is explicitly provided (including null)
         q.time_limit_seconds = payload.time_limit_seconds
 
     try:
@@ -690,9 +724,9 @@ async def update_media(media_id: int, payload: MediaUpdateRequest, db: AsyncSess
         m.source_type = payload.source_type
     if payload.url is not None:
         m.url = validated_url
-    if payload.mime is not None or payload.mime is None:
+    if "mime" in payload.model_fields_set:
         m.mime = payload.mime
-    if payload.title is not None or payload.title is None:
+    if "title" in payload.model_fields_set:
         m.title = payload.title
     if payload.sort_order is not None:
         m.sort_order = int(payload.sort_order)

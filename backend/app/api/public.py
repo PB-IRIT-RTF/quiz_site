@@ -85,6 +85,20 @@ async def _count_questions(db: AsyncSession, quiz_id: int) -> int:
     )
 
 
+def _total_time_ms(started_at: datetime | None, now: datetime) -> int:
+    if not started_at:
+        return 0
+    now_u = ensure_utc(now)
+    started_u = ensure_utc(started_at)
+    return int(max(0, (now_u - started_u).total_seconds() * 1000))
+
+
+def _finish_attempt(attempt: Attempt, now: datetime) -> None:
+    attempt.status = AttemptStatus.finished
+    attempt.finished_at = now
+    attempt.total_time_ms = _total_time_ms(attempt.started_at, now)
+
+
 def _public_question_dto(q: Question) -> QuestionPublicDto:
     options = None
     if q.type in (QuestionType.single, QuestionType.multi):
@@ -310,14 +324,7 @@ async def get_current_question(
     q = qres.scalar_one_or_none()
     if q is None:
         # нет вопросов дальше — финиш
-        attempt.status = AttemptStatus.finished
-        attempt.finished_at = now
-        if attempt.started_at:
-            now_u = ensure_utc(now)
-            started_u = ensure_utc(attempt.started_at)
-            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
-        else:
-            attempt.total_time_ms = 0
+        _finish_attempt(attempt, now)
         await db.commit()
         return CurrentQuestionResponse(
             attempt_status=attempt.status.value,
@@ -365,14 +372,7 @@ async def answer_current_question(
     )
     q = qres.scalar_one_or_none()
     if q is None:
-        attempt.status = AttemptStatus.finished
-        attempt.finished_at = now
-        if attempt.started_at:
-            now_u = ensure_utc(now)
-            started_u = ensure_utc(attempt.started_at)
-            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
-        else:
-            attempt.total_time_ms = 0
+        _finish_attempt(attempt, now)
         await db.commit()
         return AnswerCurrentQuestionResponse()
 
@@ -432,14 +432,7 @@ async def answer_current_question(
         )
     ).scalar_one()
     if int(next_exists) == 0:
-        attempt.status = AttemptStatus.finished
-        attempt.finished_at = now
-        if attempt.started_at:
-            now_u = ensure_utc(now)
-            started_u = ensure_utc(attempt.started_at)
-            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
-        else:
-            attempt.total_time_ms = 0
+        _finish_attempt(attempt, now)
 
     # forced finish by end_at
     await force_finish_if_quiz_ended(db, quiz, attempt)
@@ -483,14 +476,7 @@ async def skip_current_question(
     )
     q = qres.scalar_one_or_none()
     if q is None:
-        attempt.status = AttemptStatus.finished
-        attempt.finished_at = now
-        if attempt.started_at:
-            now_u = ensure_utc(now)
-            started_u = ensure_utc(attempt.started_at)
-            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
-        else:
-            attempt.total_time_ms = 0
+        _finish_attempt(attempt, now)
         await db.commit()
         return {"ok": True}
 
@@ -534,14 +520,7 @@ async def skip_current_question(
         )
     ).scalar_one()
     if int(next_exists) == 0:
-        attempt.status = AttemptStatus.finished
-        attempt.finished_at = now
-        if attempt.started_at:
-            now_u = ensure_utc(now)
-            started_u = ensure_utc(attempt.started_at)
-            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
-        else:
-            attempt.total_time_ms = 0
+        _finish_attempt(attempt, now)
 
     await force_finish_if_quiz_ended(db, quiz, attempt)
     await db.commit()
@@ -678,3 +657,4 @@ async def leaderboard(
                 )
 
     return LeaderboardResponse(top=top_rows, me=me, me_status=me_status)
+

@@ -6,9 +6,12 @@ if (-not (Test-Path ".\.venv\Scripts\python.exe")) {
   exit 1
 }
 
-$env:ENVIRONMENT = "dev"
-$env:COOKIE_SECURE = "false"
-$env:DEMO_SEED = "true"
+if (-not (Test-Path ".\\.env")) {
+  Copy-Item -Force ".\\.env.dev" ".\\.env"
+  Write-Host "[OK] backend/.env missing, switched to DEV profile (.env.dev)" -ForegroundColor Yellow
+}
+
 
 Write-Host "[OK] Starting backend (reload) on http://127.0.0.1:8000" -ForegroundColor Green
 & .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
