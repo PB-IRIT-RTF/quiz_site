@@ -4,8 +4,14 @@ import argparse
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 from sqlalchemy import select
+
+# Allow running this script directly from backend/scripts by ensuring backend/ is on sys.path.
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine
@@ -111,3 +117,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
