@@ -8,6 +8,7 @@ import { ResultPage } from "@/pages/ResultPage";
 import { LeaderboardPage } from "@/pages/LeaderboardPage";
 import { AdminLoginPage } from "@/pages/admin/AdminLoginPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
+import { AdminGuard } from "@/pages/admin/AdminGuard";
 
 export function App() {
   return (
@@ -20,8 +21,16 @@ export function App() {
         <Route path="/result" element={<ResultPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
 
-        <Route path="/admin" element={<AdminLoginPage />} />
-        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminGuard>
+              <AdminDashboardPage />
+            </AdminGuard>
+          }
+        />
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

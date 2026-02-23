@@ -18,7 +18,7 @@ import type {
   StatsSummaryResponse,
 } from "@/lib/api/types";
 import { clamp, toInitialsFio } from "@/lib/format";
-import { normalizeGroup, normalizeVkUrl, titleCaseRu } from "@/lib/validation";
+import { normalizeSpaces, normalizeVkUrl } from "@/lib/validation";
 
 const LS_DB = "uirit.mockdb.v1";
 const LS_PARTICIPANT_ID = "uirit.participant_id";
@@ -445,8 +445,10 @@ export const mockApi: Api = {
   async registerParticipant(input: ParticipantRegisterRequest): Promise<ParticipantRegisterResponse> {
     const db = loadDb();
 
-    const fio_norm = titleCaseRu(input.fio);
-    const group_norm = normalizeGroup(input.group);
+    const nickname = normalizeSpaces(input.nickname);
+    if (!nickname) throw new ApiError("Bad Request", 400, { detail: "nickname required" });
+    const fio_norm = nickname;
+    const group_norm = "";
     const vk_norm = normalizeVkUrl(input.vk_url);
     if (!vk_norm) throw new ApiError("Bad Request", 400, { field: "vk_url", detail: "invalid" });
 
@@ -456,9 +458,9 @@ export const mockApi: Api = {
       existing ??
       ({
         id: uuid(),
-        fio_raw: input.fio,
+        fio_raw: nickname,
         fio_norm,
-        group_raw: input.group,
+        group_raw: "",
         group_norm,
         vk_url_raw: input.vk_url,
         vk_url_norm: vk_norm,
@@ -625,7 +627,7 @@ export const mockApi: Api = {
     return { ok: true };
   },
 
-  async skipCurrentQuestion(question_id: string) {
+  async skipCurrentQuestion(question_id: number) {
     const db = loadDb();
     const quiz = getQuiz(db);
     if (!quiz) throw new ApiError("No quiz", 404, null);

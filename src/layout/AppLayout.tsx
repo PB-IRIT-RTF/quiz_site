@@ -11,7 +11,7 @@ function TopNavLink({ to, label }: { to: string; label: string }) {
       className={({ isActive }) =>
         cn(
           "rounded-lg px-3 py-2 text-sm font-medium transition",
-          isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
+          isActive ? "bg-[#79CBF7] text-[#1f3340]" : "text-[var(--event-ink)] hover:bg-[#dff2fd]"
         )
       }
     >
@@ -26,6 +26,7 @@ export function AppLayout() {
 
   useEffect(() => {
     let mounted = true;
+
     api
       .me()
       .then((r) => {
@@ -34,33 +35,30 @@ export function AppLayout() {
       .catch(() => {
         if (mounted) setRole("anonymous");
       });
+
     return () => {
       mounted = false;
     };
   }, [loc.pathname]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-[var(--event-border)] bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-slate-900">Вселенная ИРИТ‑РТФ</div>
-              <div className="text-xs text-slate-500">Квиз‑платформа</div>
+              <div className="text-sm font-semibold text-black">Вселенная ИРИТ-РТФ</div>
+              <div className="text-xs text-[var(--event-ink-soft)]">Квиз-платформа</div>
             </div>
           </div>
 
           <nav className="flex items-center gap-2">
             <TopNavLink to="/" label="Главная" />
             <TopNavLink to="/leaderboard" label="Лидерборд" />
-            {role === "admin" ? (
-              <>
-                <TopNavLink to="/admin" label="Админ" />
-                <TopNavLink to="/admin/dashboard" label="Дашборд" />
-              </>
-            ) : (
-              <TopNavLink to="/register" label="Регистрация" />
-            )}
+
+            {role === "admin" ? <TopNavLink to="/admin" label="Админ" /> : null}
+
+            {role === "anonymous" ? <TopNavLink to="/register" label="Регистрация" /> : null}
           </nav>
         </div>
       </header>
@@ -69,10 +67,9 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-200/70 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-slate-500">
-          <div>© {new Date().getFullYear()} «Вселенная ИРИТ‑РТФ»</div>
-          <div className="mt-1">Во время мероприятия не обновляйте страницу без необходимости — прогресс хранится на сервере.</div>
+      <footer className="bg-transparent">
+        <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-[var(--event-ink-soft)]">
+          <div>© {new Date().getFullYear()} «Союз студентов ИРИТ-РТФ»</div>
         </div>
       </footer>
     </div>

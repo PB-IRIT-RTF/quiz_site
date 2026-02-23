@@ -8,11 +8,11 @@ export function Alert({
 }: PropsWithChildren<{ variant?: "info" | "warning" | "danger" | "success"; className?: string }>) {
   const styles =
     variant === "info"
-      ? "border-sky-200 bg-sky-50 text-sky-900"
+      ? "border-[#79CBF7] bg-[#EAF8FF] text-[#2E607A]"
       : variant === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+        ? "border-[#8CCFAD] bg-[#EEF9F2] text-[#1D5B3B]"
         : variant === "warning"
-          ? "border-amber-200 bg-amber-50 text-amber-900"
+          ? "border-[#D7A6EF] bg-[#F8EEFD] text-[#60426F]"
           : "border-rose-200 bg-rose-50 text-rose-900";
 
   return <div className={cn("rounded-2xl border p-4 text-sm", styles, className)}>{children}</div>;

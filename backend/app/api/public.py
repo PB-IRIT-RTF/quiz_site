@@ -30,8 +30,9 @@ from app.schemas.public import (
 )
 from app.services import scoring
 from app.services.auth import COOKIE_NAME, cookie_params, create_participant_token, get_participant_id_from_cookie
-from app.services.normalize import fio_to_display, normalize_fio_raw_to_norm, normalize_group, normalize_vk_url
-from app.services.timer import advance_if_expired, force_finish_if_quiz_ended, utcnow
+from app.services.normalize import fio_to_display, normalize_nickname, normalize_vk_url
+from app.services.timer import advance_if_expired, force_finish_if_quiz_ended, ensure_utc, utcnow
+
 
 router = APIRouter()
 
@@ -39,11 +40,17 @@ router = APIRouter()
 def _quiz_state(quiz: Quiz | None, now: datetime) -> tuple[str, Quiz | None]:
     if quiz is None:
         return "none", None
+
+    # Нормализуем даты (SQLite -> naive, приводим к UTC-aware)
+    now_u = ensure_utc(now)
+    start_u = ensure_utc(quiz.start_at)
+    end_u = ensure_utc(quiz.end_at)
+
     if not quiz.published:
         return "unpublished", quiz
-    if now < quiz.start_at:
+    if now_u < start_u:
         return "not_started", quiz
-    if now >= quiz.end_at:
+    if now_u >= end_u:
         return "ended", quiz
     return "running", quiz
 
@@ -111,10 +118,16 @@ def _public_question_dto(q: Question) -> QuestionPublicDto:
 def _time_left_seconds(attempt: Attempt, question: Question) -> int | None:
     if question.time_limit_seconds is None:
         return None
+
     started_at = attempt.current_question_started_at or attempt.started_at
     if not started_at:
         return question.time_limit_seconds
-    elapsed = (utcnow() - started_at).total_seconds()
+
+    # Нормализуем: SQLite может вернуть naive, приводим всё к UTC-aware
+    now_u = ensure_utc(utcnow())
+    started_u = ensure_utc(started_at)
+
+    elapsed = (now_u - started_u).total_seconds()
     left = int(question.time_limit_seconds - int(elapsed))
     return max(0, min(question.time_limit_seconds, left))
 
@@ -167,39 +180,40 @@ async def register_participant(
     db: AsyncSession = Depends(get_db),
 ) -> ParticipantRegisterResponse:
     try:
-        fio_norm = normalize_fio_raw_to_norm(payload.fio)
-        group_norm = normalize_group(payload.group)
+        fio_norm = normalize_nickname(payload.nickname)
         vk_norm = normalize_vk_url(payload.vk_url)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    # upsert by unique fio_norm+group_norm
+    # если группы больше нет — фиксируем пустую строку (чтобы NOT NULL не падал)
+    group_raw = ""
+    group_norm = ""
+
+    # do not "login" existing participant by nickname:
+    # nickname collision should return conflict, otherwise someone can hijack another user's session
     res = await db.execute(
         select(Participant).where(and_(Participant.fio_norm == fio_norm, Participant.group_norm == group_norm))
     )
     p = res.scalar_one_or_none()
-    if p is None:
-        p = Participant(
-            fio_raw=payload.fio,
-            fio_norm=fio_norm,
-            group_raw=payload.group,
-            group_norm=group_norm,
-            vk_url_raw=payload.vk_url,
-            vk_url_norm=vk_norm,
-        )
-        db.add(p)
-        try:
-            await db.commit()
-        except IntegrityError:
-            await db.rollback()
-            # race: somebody just created
-            res2 = await db.execute(
-                select(Participant).where(and_(Participant.fio_norm == fio_norm, Participant.group_norm == group_norm))
-            )
-            p = res2.scalar_one()
-    else:
-        # уже есть — ничего не меняем
-        pass
+
+    if p is not None:
+        raise HTTPException(status_code=409, detail="nickname_already_taken")
+
+    p = Participant(
+        fio_raw=payload.nickname,
+        fio_norm=fio_norm,
+        group_raw=group_raw,
+        group_norm=group_norm,
+        vk_url_raw=payload.vk_url,
+        vk_url_norm=vk_norm,
+    )
+    db.add(p)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # race: nickname was created concurrently
+        raise HTTPException(status_code=409, detail="nickname_already_taken")
 
     token = create_participant_token(p.id)
     response.set_cookie(key=COOKIE_NAME, value=token, **cookie_params())
@@ -299,7 +313,9 @@ async def get_current_question(
         attempt.status = AttemptStatus.finished
         attempt.finished_at = now
         if attempt.started_at:
-            attempt.total_time_ms = int((now - attempt.started_at).total_seconds() * 1000)
+            now_u = ensure_utc(now)
+            started_u = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         else:
             attempt.total_time_ms = 0
         await db.commit()
@@ -352,7 +368,9 @@ async def answer_current_question(
         attempt.status = AttemptStatus.finished
         attempt.finished_at = now
         if attempt.started_at:
-            attempt.total_time_ms = int((now - attempt.started_at).total_seconds() * 1000)
+            now_u = ensure_utc(now)
+            started_u = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         else:
             attempt.total_time_ms = 0
         await db.commit()
@@ -373,7 +391,11 @@ async def answer_current_question(
         raise HTTPException(status_code=409, detail="already_answered")
 
     started_at = attempt.current_question_started_at or attempt.started_at or now
-    time_spent_ms = int(max(0, (now - started_at).total_seconds() * 1000))
+
+    now_u = ensure_utc(now)
+    started_u = ensure_utc(started_at)
+
+    time_spent_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
 
     payload_dict: dict[str, Any] = {
         "option_ids": payload.option_ids or [],
@@ -413,7 +435,9 @@ async def answer_current_question(
         attempt.status = AttemptStatus.finished
         attempt.finished_at = now
         if attempt.started_at:
-            attempt.total_time_ms = int((now - attempt.started_at).total_seconds() * 1000)
+            now_u = ensure_utc(now)
+            started_u = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         else:
             attempt.total_time_ms = 0
 
@@ -462,7 +486,9 @@ async def skip_current_question(
         attempt.status = AttemptStatus.finished
         attempt.finished_at = now
         if attempt.started_at:
-            attempt.total_time_ms = int((now - attempt.started_at).total_seconds() * 1000)
+            now_u = ensure_utc(now)
+            started_u = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         else:
             attempt.total_time_ms = 0
         await db.commit()
@@ -479,7 +505,11 @@ async def skip_current_question(
     ).scalar_one_or_none()
     if existing is None:
         started_at = attempt.current_question_started_at or attempt.started_at or now
-        time_spent_ms = int(max(0, (now - started_at).total_seconds() * 1000))
+
+        now_u = ensure_utc(now)
+        started_u = ensure_utc(started_at)
+
+        time_spent_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         db.add(
             AttemptAnswer(
                 attempt_id=attempt.id,
@@ -507,7 +537,9 @@ async def skip_current_question(
         attempt.status = AttemptStatus.finished
         attempt.finished_at = now
         if attempt.started_at:
-            attempt.total_time_ms = int((now - attempt.started_at).total_seconds() * 1000)
+            now_u = ensure_utc(now)
+            started_u = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int(max(0, (now_u - started_u).total_seconds() * 1000))
         else:
             attempt.total_time_ms = 0
 

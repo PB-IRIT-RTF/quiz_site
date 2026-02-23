@@ -60,10 +60,7 @@ export function LandingPage() {
           <div className="flex flex-wrap gap-2">
             {role === "participant" ? (
               <>
-                <Button onClick={() => nav("/start")}>К старту</Button>
-                <Button variant="secondary" onClick={() => nav("/leaderboard")}>
-                  Лидерборд
-                </Button>
+                <Button onClick={() => nav("/start")}>Старт</Button>
               </>
             ) : (
               <Button onClick={() => nav("/register")}>Регистрация</Button>
@@ -78,20 +75,13 @@ export function LandingPage() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="text-xs text-slate-500">Лидерборд</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">Top‑20 + «моё место» после финиша</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">Участники с наилучшим результатом будут отображены на Лидерборде</div>
           </div>
         </div>
 
         {error ? (
           <div className="mt-4 space-y-2">
             <Alert variant="danger">Не удалось получить состояние квиза: {error}</Alert>
-            <Alert variant="info">
-              <div className="font-medium">Как быстро проверить, что backend запущен</div>
-              <div className="mt-1 text-xs">
-                Откройте в браузере: <span className="font-mono">http://127.0.0.1:8000/api/health</span>. Если не открывается —
-                сервер не запущен/не слушает порт 8000.
-              </div>
-            </Alert>
           </div>
         ) : null}
       </Card>
@@ -99,16 +89,13 @@ export function LandingPage() {
       <Card>
         <h2 className="text-lg font-semibold text-slate-900">Как это работает</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">
-          <li>Зарегистрируйтесь (ФИО, группа, VK).</li>
-          <li>Нажмите «Начать» — создаётся попытка (только одна).</li>
-          <li>Отвечайте на вопросы: single/multi/text. Назад нельзя, пропускать можно.</li>
+          <li>Зарегистрируйтесь (ник, VK).</li>
+          <li>Нажмите «Начать» — (есть только одна попытка).</li>
+          <li>Отвечайте на вопросы. Вернуться назад нельзя, пропускать вопросы можно.</li>
           <li>Если на вопрос есть таймер — по истечению будет авто‑сабмит и переход дальше.</li>
           <li>После завершения — покажем итог и место.</li>
         </ol>
 
-        <div className="mt-4 text-xs text-slate-500">
-          Во время квиза не обновляйте страницу без необходимости — прогресс фиксируется на сервере.
-        </div>
       </Card>
     </div>
   );

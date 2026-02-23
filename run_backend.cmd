@@ -9,6 +9,8 @@ if not exist ".\.venv\Scripts\python.exe" (
   exit /b 1
 )
 
+set ENVIRONMENT=dev
+set COOKIE_SECURE=false
 set DEMO_SEED=true
 
 echo [OK] Starting backend on http://127.0.0.1:8000

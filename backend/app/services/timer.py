@@ -10,24 +10,30 @@ from app.models.models import Attempt, AttemptAnswer, Question, Quiz
 
 
 def utcnow() -> datetime:
+    # Всегда возвращаем aware datetime в UTC
     return datetime.now(timezone.utc)
+
+
+def ensure_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 async def force_finish_if_quiz_ended(db: AsyncSession, quiz: Quiz, attempt: Attempt) -> None:
     now = utcnow()
-    if now >= quiz.end_at and attempt.status == AttemptStatus.in_progress:
+    end_at = ensure_utc(quiz.end_at)
+
+    if now >= end_at and attempt.status == AttemptStatus.in_progress:
         attempt.status = AttemptStatus.forced_finished
         attempt.finished_at = now
+
         if attempt.started_at:
-            attempt.total_time_ms = int((attempt.finished_at - attempt.started_at).total_seconds() * 1000)
+            started_at = ensure_utc(attempt.started_at)
+            attempt.total_time_ms = int((attempt.finished_at - started_at).total_seconds() * 1000)
 
 
 async def advance_if_expired(db: AsyncSession, quiz: Quiz, attempt: Attempt) -> None:
-    """
-    Implements: if current question timer expired -> auto submit empty answer (if not already) and move forward.
-
-    IMPORTANT: attempt should be locked (SELECT ... FOR UPDATE) by caller.
-    """
     if attempt.status != AttemptStatus.in_progress:
         return
 
@@ -40,22 +46,28 @@ async def advance_if_expired(db: AsyncSession, quiz: Quiz, attempt: Attempt) -> 
             select(Question).where(and_(Question.quiz_id == quiz.id, Question.order == attempt.current_question_order))
         )
         question = qres.scalar_one_or_none()
+
         if question is None:
             attempt.status = AttemptStatus.finished
-            attempt.finished_at = utcnow()
+            now = utcnow()
+            attempt.finished_at = now
             if attempt.started_at:
-                attempt.total_time_ms = int((attempt.finished_at - attempt.started_at).total_seconds() * 1000)
+                started_at = ensure_utc(attempt.started_at)
+                attempt.total_time_ms = int((attempt.finished_at - started_at).total_seconds() * 1000)
             return
 
         if question.time_limit_seconds is None:
             return
 
-        started_at = attempt.current_question_started_at or attempt.started_at
-        if started_at is None:
+        started_at_raw = attempt.current_question_started_at or attempt.started_at
+        if started_at_raw is None:
             attempt.current_question_started_at = utcnow()
             return
 
-        elapsed = (utcnow() - started_at).total_seconds()
+        now = utcnow()
+        started_at = ensure_utc(started_at_raw)
+
+        elapsed = (now - started_at).total_seconds()
         if elapsed < question.time_limit_seconds:
             return
 

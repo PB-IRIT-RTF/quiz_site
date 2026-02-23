@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 QuizState = Literal["running", "ended", "not_started", "unpublished", "none"]
@@ -33,8 +33,7 @@ class ActiveQuizResponse(BaseModel):
 
 
 class ParticipantRegisterRequest(BaseModel):
-    fio: str
-    group: str
+    nickname: str = Field(validation_alias=AliasChoices("nickname", "fio"))
     vk_url: str
 
 

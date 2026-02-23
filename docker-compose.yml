@@ -1,8 +1,6 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -13,17 +11,16 @@ services:
     build:
       context: ./backend
     env_file:
-      - ./backend/.env.example
+      - ./backend/.env
     environment:
       # SQLite (файл внутри контейнера). Для сохранения между перезапусками — volume ниже.
       DATABASE_URL: sqlite+aiosqlite:///./data/quiz.db
       REDIS_URL: redis://redis:6379/0
-      COOKIE_SECURE: "false"
-      FRONTEND_ORIGINS: "http://localhost:5173,http://localhost:4173"
+      COOKIE_SECURE: "true"
+      DEMO_SEED: "false"
+      FRONTEND_ORIGINS: "https://example.com"
     volumes:
       - backend_data:/app/data
-    ports:
-      - "8000:8000"
     depends_on:
       redis:
         condition: service_healthy
@@ -32,8 +29,8 @@ services:
     build:
       context: ./infra/nginx
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "80:80"
+      - "443:443"
     volumes:
       # сюда положить fullchain.pem/privkey.pem для HTTPS
       - ./infra/nginx/certs:/etc/nginx/certs:ro

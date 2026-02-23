@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
 
     cookie_secret: str = Field(default="dev-secret-change-me", validation_alias="COOKIE_SECRET")
-    cookie_secure: bool = Field(default=False, validation_alias="COOKIE_SECURE")
+    cookie_secure: bool = Field(default=True, validation_alias="COOKIE_SECURE")
 
     # comma-separated origins (для Vite dev server). Важно: Vite часто открывают через 127.0.0.1
     # и тогда Origin будет http://127.0.0.1:5173 — поэтому добавляем оба варианта.
@@ -46,7 +46,16 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
-    demo_seed: bool = Field(default=True, validation_alias="DEMO_SEED")
+    demo_seed: bool = Field(default=False, validation_alias="DEMO_SEED")
+
+    admin_login_rate_limit_window_seconds: int = Field(default=300, validation_alias="ADMIN_LOGIN_RATE_LIMIT_WINDOW_SECONDS")
+    admin_login_rate_limit_max_attempts: int = Field(default=10, validation_alias="ADMIN_LOGIN_RATE_LIMIT_MAX_ATTEMPTS")
+    admin_login_rate_limit_block_seconds: int = Field(default=900, validation_alias="ADMIN_LOGIN_RATE_LIMIT_BLOCK_SECONDS")
+
+    embed_allowed_hosts: str = Field(
+        default="vk.com,www.vk.com,rutube.ru,www.rutube.ru,player.vimeo.com,dzen.ru,www.dzen.ru",
+        validation_alias="EMBED_ALLOWED_HOSTS",
+    )
 
     # Локальный “хостинг без Docker”: FastAPI может раздавать build фронта из dist/
     # (мы всё равно делаем fallback-поиск repo/dist в app.main).

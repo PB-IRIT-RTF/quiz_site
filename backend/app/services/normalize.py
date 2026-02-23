@@ -38,6 +38,15 @@ def normalize_fio_raw_to_norm(fio_raw: str) -> str:
     return title_case_ru(fio)
 
 
+def normalize_nickname(nickname_raw: str) -> str:
+    nickname = normalize_spaces(nickname_raw)
+    if not nickname:
+        raise ValueError("nickname required")
+    if len(nickname) > 64:
+        raise ValueError("nickname too long")
+    return nickname
+
+
 def normalize_group(group_raw: str) -> str:
     g = normalize_spaces(group_raw).upper()
     if not re.match(r"^[А-ЯЁA-Z]{2}-\d{6}$", g):
@@ -67,9 +76,4 @@ def normalize_vk_url(vk_raw: str) -> str:
 
 
 def fio_to_display(fio_norm: str) -> str:
-    parts = normalize_spaces(fio_norm).split(" ")
-    if not parts:
-        return ""
-    last = parts[0]
-    initials = "".join([(p[0].upper() + ".") for p in parts[1:] if p])
-    return f"{last} {initials}".strip()
+    return normalize_spaces(fio_norm)

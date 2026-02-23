@@ -1,86 +1,93 @@
-import { useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { api } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Alert } from "@/components/Alert";
-import { api } from "@/lib/api";
-import { usePolling } from "@/hooks/usePolling";
-import { msToHuman } from "@/lib/format";
+import type { LeaderboardRow, LeaderboardResponse } from "@/lib/api/types";
+
+function fmtMs(ms: number | null | undefined): string {
+  if (ms == null) return "—";
+  const total = Math.max(0, ms);
+  const s = Math.floor(total / 1000);
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return m > 0 ? `${m}:${String(ss).padStart(2, "0")}` : `${ss}s`;
+}
 
 export function LeaderboardPage() {
-  const loader = useCallback(() => api.getLeaderboard(20), []);
-  const { data, error, loading, reload } = usePolling(loader, 4000, true);
+  const [data, setData] = useState<LeaderboardResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setError(null);
+        const res = await api.getLeaderboard(50);
+        setData(res);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+  }, []);
+
+  const myRank = useMemo(() => (data?.me ? data.me.rank : null), [data]);
+
+  const rows = useMemo(() => data?.top ?? [], [data]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Card>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Лидерборд</h1>
-            <p className="mt-1 text-sm text-slate-600">Top‑20 обновляется по мере финиша участников (finished/forced_finished).</p>
-          </div>
-          <button
-            onClick={() => void reload()}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {loading ? "Обновляем…" : "Обновить"}
-          </button>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Таблица лидеров</h1>
+          <p className="mt-1 text-sm text-slate-600">Рейтинг по баллам, если баллы равны, то по времени.</p>
         </div>
 
         {error ? (
           <div className="mt-4">
-            <Alert variant="danger">Ошибка: {error instanceof Error ? error.message : String(error)}</Alert>
+            <Alert variant="danger">{error}</Alert>
           </div>
         ) : null}
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-3">#</th>
-                <th className="px-4 py-3">Участник</th>
-                <th className="px-4 py-3">Баллы</th>
-                <th className="px-4 py-3">Время</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {(data?.top ?? []).map((r) => (
-                <tr key={r.rank} className="bg-white">
-                  <td className="px-4 py-3 font-medium text-slate-900">{r.rank}</td>
-                  <td className="px-4 py-3 text-slate-800">{r.display_name}</td>
-                  <td className="px-4 py-3 text-slate-800">{r.score}</td>
-                  <td className="px-4 py-3 text-slate-800">{msToHuman(r.total_time_ms)}</td>
-                </tr>
-              ))}
-              {(data?.top?.length ?? 0) === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
-                    Пока нет завершённых попыток.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+        {!data ? (
+          <div className="mt-4">
+            <Alert variant="info">Загрузка…</Alert>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="mt-4">
+            <Alert variant="info">Пока нет результатов.</Alert>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+            <div className="grid grid-cols-[64px_1fr_96px_96px] gap-0 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
+              <div>#</div>
+              <div>Участник</div>
+              <div className="text-right">Баллы</div>
+              <div className="text-right">Время</div>
+            </div>
 
-        <div className="mt-4">
-          <Alert variant="info">
-            <div className="font-medium">Ваш статус: {data?.me_status ?? "—"}</div>
-            <div className="mt-1 text-xs">«Моё место» доступно только после завершения попытки.</div>
-          </Alert>
-        </div>
-
-        {data?.me ? (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="text-xs text-slate-500">Моё место</div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-3">
-              <div className="text-lg font-semibold text-slate-900">#{data.me.rank}</div>
-              <div className="text-sm text-slate-700">{data.me.display_name}</div>
-              <div className="text-sm text-slate-700">Баллы: {data.me.score}</div>
-              <div className="text-sm text-slate-700">Время: {msToHuman(data.me.total_time_ms)}</div>
+            <div className="divide-y divide-slate-200 bg-white">
+              {rows.map((r: LeaderboardRow) => {
+                const isMe = myRank != null && r.rank === myRank;
+                return (
+                  <div
+                    key={`${r.rank}-${r.display_name}`}
+                    className={[
+                      "grid grid-cols-[64px_1fr_96px_96px] items-center px-4 py-3 text-sm",
+                      isMe ? "bg-slate-50" : "",
+                    ].join(" ")}
+                  >
+                    <div className="text-slate-600">{r.rank}</div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-slate-900">{r.display_name}</div>
+                      {isMe ? <div className="mt-1 text-xs text-slate-500">это ты :)</div> : null}
+                    </div>
+                    <div className="text-right font-semibold text-slate-900">{r.score}</div>
+                    <div className="text-right text-slate-700">{fmtMs(r.total_time_ms)}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        ) : null}
-
-        <div className="mt-4 text-xs text-slate-500">Публично отображается только «Фамилия И.О.»</div>
+        )}
       </Card>
     </div>
   );

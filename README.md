@@ -93,3 +93,45 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 - остановить backend
 - удалить `backend/data/quiz.db`
 - запустить backend снова
+
+## Production (Docker + Nginx)
+1) Set real secrets in `backend/.env`:
+```env
+ENVIRONMENT=prod
+COOKIE_SECRET=<long-random-secret>
+COOKIE_SECURE=true
+DEMO_SEED=false
+FRONTEND_ORIGINS=https://your-domain.com
+```
+
+2) Build frontend in production mode:
+```powershell
+npm ci
+npm run build
+```
+
+3) Provide TLS certs for nginx:
+- `infra/nginx/certs/fullchain.pem`
+- `infra/nginx/certs/privkey.pem`
+
+4) Start stack:
+```powershell
+docker compose up -d --build
+```
+
+## Env Profiles (dev/prod)
+- `backend/.env.dev` and `backend/.env.prod` are templates.
+- Active profile is `backend/.env`.
+
+Switch profile (PowerShell):
+```powershell
+cd backend
+./use_env_dev.ps1   # or ./use_env_prod.ps1
+```
+
+Switch profile (CMD):
+```cmd
+cd backend
+use_env_dev.cmd
+:: or use_env_prod.cmd
+```

@@ -2,28 +2,21 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
-import { normalizeVkUrl, titleCaseRu, normalizeGroup, normalizeSpaces } from "@/lib/validation";
-
-const fioWord = "[А-ЯЁа-яё]+(?:-[А-ЯЁа-яё]+)*";
-const fioRe = new RegExp(`^${fioWord}(?:\\s+${fioWord}){1,3}$`);
+import { normalizeVkUrl, normalizeSpaces } from "@/lib/validation";
 
 const schema = z.object({
-  fio: z
+  nickname: z
     .string()
     .transform((v) => normalizeSpaces(v))
-    .refine((v) => fioRe.test(v), "ФИО: 2–4 слова (кириллица), допускается дефис")
-    .transform((v) => titleCaseRu(v)),
-  group: z
-    .string()
-    .transform((v) => normalizeGroup(v))
-    .refine((v) => /^[А-ЯЁA-Z]{2}-\d{6}$/.test(v), "Группа: формат РИ-150940"),
+    .refine((v) => v.length > 0, "Ник обязателен")
+    .refine((v) => v.length <= 64, "Ник слишком длинный"),
   vk_url: z
     .string()
     .transform((v) => normalizeSpaces(v))
@@ -36,16 +29,38 @@ type FormValues = z.infer<typeof schema>;
 export function RegisterPage() {
   const nav = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  useEffect(() => {
+    let mounted = true;
+    api
+      .me()
+      .then((me) => {
+        if (!mounted) return;
+        if (me.role === "participant") {
+          nav("/start", { replace: true });
+          return;
+        }
+        setCheckingSession(false);
+      })
+      .catch(() => {
+        if (mounted) setCheckingSession(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [nav]);
+
   const onSubmit = async (values: FormValues) => {
     setSubmitError(null);
     try {
-      await api.registerParticipant({ fio: values.fio, group: values.group, vk_url: values.vk_url });
+      await api.registerParticipant({ nickname: values.nickname, vk_url: values.vk_url });
       nav("/start", { replace: true });
     } catch (e) {
       if (e instanceof ApiError) {
@@ -57,25 +72,27 @@ export function RegisterPage() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <Card>Проверяем сессию…</Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <Card>
         <h1 className="text-xl font-semibold text-slate-900">Регистрация участника</h1>
-        <p className="mt-1 text-sm text-slate-600">Данные сохраняются на сервере. Прохождение квиза — только один раз.</p>
+        <p className="mt-1 text-sm text-slate-600"></p>
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
           {submitError ? <Alert variant="danger">{submitError}</Alert> : null}
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-900">ФИО</label>
-            <Input placeholder="Иванов Иван Иванович" autoComplete="name" {...register("fio")} />
-            {errors.fio ? <div className="text-xs text-rose-600">{errors.fio.message}</div> : null}
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-900">Академическая группа</label>
-            <Input placeholder="РИ-150940" autoComplete="off" {...register("group")} />
-            {errors.group ? <div className="text-xs text-rose-600">{errors.group.message}</div> : null}
+            <label className="text-sm font-medium text-slate-900">Ник</label>
+            <Input placeholder="Например: CosmosCat" autoComplete="nickname" {...register("nickname")} />
+            {errors.nickname ? <div className="text-xs text-rose-600">{errors.nickname.message}</div> : null}
           </div>
 
           <div className="space-y-1">
@@ -85,7 +102,7 @@ export function RegisterPage() {
           </div>
 
           <Alert variant="info">
-            VK‑ссылка обязательна и хранится для организаторов, но не отображается участникам и не попадает в публичный лидерборд.
+            Нажимая на кнопку  "Зарегистрироваться", вы соглашаетесь на обработку персональных данных
           </Alert>
 
           <div className="flex gap-2">

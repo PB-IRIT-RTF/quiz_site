@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import secrets
 
 from fastapi import Cookie, HTTPException
 from jose import jwt
@@ -11,6 +12,7 @@ from app.core.config import settings
 ALGORITHM = "HS256"
 COOKIE_NAME = "quiz_token"
 ADMIN_COOKIE_NAME = "admin_token"
+ADMIN_CSRF_COOKIE_NAME = "admin_csrf"
 
 
 def _now() -> datetime:
@@ -35,6 +37,10 @@ def create_admin_token() -> str:
         "exp": int((_now() + timedelta(hours=12)).timestamp()),
     }
     return jwt.encode(payload, settings.cookie_secret, algorithm=ALGORITHM)
+
+
+def create_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def decode_token(token: str) -> dict:
@@ -64,6 +70,15 @@ def cookie_params() -> dict:
     return {
         "httponly": True,
         "secure": bool(settings.cookie_secure),
-        "samesite": "lax",
+        "samesite": "strict",
+        "path": "/",
+    }
+
+
+def csrf_cookie_params() -> dict:
+    return {
+        "httponly": False,
+        "secure": bool(settings.cookie_secure),
+        "samesite": "strict",
         "path": "/",
     }

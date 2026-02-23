@@ -11,12 +11,12 @@ export function Button({
 >) {
   const styles =
     variant === "primary"
-      ? "bg-slate-900 text-white hover:bg-slate-800"
+      ? "bg-[#79CBF7] text-[#1f3340] hover:bg-[#67bde9]"
       : variant === "secondary"
-        ? "bg-slate-100 text-slate-900 hover:bg-slate-200"
+        ? "border border-[var(--event-border)] bg-[var(--event-bg)] text-[var(--event-ink)] hover:bg-[#dff2fd]"
         : variant === "danger"
           ? "bg-rose-600 text-white hover:bg-rose-700"
-          : "bg-transparent text-slate-700 hover:bg-slate-100";
+          : "bg-transparent text-[var(--event-ink)] hover:bg-[#f0e4f8]";
 
   return (
     <button

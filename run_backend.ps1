@@ -8,6 +8,8 @@ if (-not (Test-Path ".\.venv\Scripts\python.exe")) {
   exit 1
 }
 
+$env:ENVIRONMENT = "dev"
+$env:COOKIE_SECURE = "false"
 $env:DEMO_SEED = "true"
 
 Write-Host "[OK] Starting backend on http://127.0.0.1:8000" -ForegroundColor Green

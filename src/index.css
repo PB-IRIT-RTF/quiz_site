@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+:root {
+  --event-bg: #f0f0f0;
+  --event-accent-blue: #79cbf7;
+  --event-accent-lilac: #d7a6ef;
+  --event-ink: #6d6c6a;
+  --event-ink-soft: #8a8987;
+  --event-border: #d9d9d9;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: radial-gradient(1200px 600px at 0% 0%, color-mix(in srgb, var(--event-accent-blue) 28%, white), transparent 70%),
+    radial-gradient(1000px 500px at 100% 0%, color-mix(in srgb, var(--event-accent-lilac) 32%, white), transparent 70%), var(--event-bg);
+  color: var(--event-ink);
+}
