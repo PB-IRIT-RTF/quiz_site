@@ -1,43 +1,29 @@
 services:
-  redis:
-    image: redis:7-alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   backend:
     build:
       context: ./backend
     env_file:
       - ./backend/.env
     environment:
-      # SQLite (файл внутри контейнера). Для сохранения между перезапусками — volume ниже.
       DATABASE_URL: sqlite+aiosqlite:///./data/quiz.db
-      REDIS_URL: redis://redis:6379/0
-      COOKIE_SECURE: "true"
-      DEMO_SEED: "false"
-      FRONTEND_ORIGINS: "https://example.com"
+      ENVIRONMENT: dev
+      COOKIE_SECURE: "false"
+      FRONTEND_ORIGINS: "http://localhost,http://127.0.0.1"
     volumes:
       - backend_data:/app/data
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  nginx:
-    build:
-      context: ./infra/nginx
+    expose:
+      - "8000"
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      # сюда положить fullchain.pem/privkey.pem для HTTPS
-      - ./infra/nginx/certs:/etc/nginx/certs:ro
-      # опционально: если вы соберёте фронт и положите в ./dist
-      - ./dist:/usr/share/nginx/html:ro
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     depends_on:
       - backend
+    ports:
+      - "80:80"
 
 volumes:
   backend_data:
