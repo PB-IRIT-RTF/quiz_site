@@ -88,12 +88,11 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const contentType = res.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
   const bodyRaw = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
-  const body = sanitizeErrorBody(bodyRaw);
 
   if (!res.ok) {
-    throw new ApiError(`HTTP ${res.status}`, res.status, body);
+    throw new ApiError(`HTTP ${res.status}`, res.status, sanitizeErrorBody(bodyRaw));
   }
-  return body as T;
+  return bodyRaw as T;
 }
 
 export const httpApi: Api = {

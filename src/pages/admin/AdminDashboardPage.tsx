@@ -979,6 +979,7 @@ export function AdminDashboardPage() {
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="px-3 py-2">Участник</th>
+                    <th className="px-3 py-2">VK</th>
                     <th className="px-3 py-2">Статус</th>
                     <th className="px-3 py-2">Счёт</th>
                     <th className="px-3 py-2">Время</th>
@@ -987,7 +988,7 @@ export function AdminDashboardPage() {
                 <tbody>
                   {attempts.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-3 text-slate-600" colSpan={4}>
+                      <td className="px-3 py-3 text-slate-600" colSpan={5}>
                         Нет попыток.
                       </td>
                     </tr>
@@ -1004,6 +1005,21 @@ export function AdminDashboardPage() {
                         }}
                       >
                         <td className="px-3 py-2 font-medium text-slate-900">{a.fio_norm}</td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {a.vk_url_norm ? (
+                            <a
+                              href={a.vk_url_norm}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="text-blue-700 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {a.vk_url_norm}
+                            </a>
+                          ) : (
+                            "�"
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-slate-700">{a.status}</td>
                         <td className="px-3 py-2 text-slate-700">{a.score}</td>
                         <td className="px-3 py-2 text-slate-700">{fmtMs(a.total_time_ms)}</td>

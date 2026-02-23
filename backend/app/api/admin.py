@@ -795,6 +795,7 @@ async def export_csv(quiz_id: int, db: AsyncSession = Depends(get_db)):
             Attempt.id,
             Attempt.participant_id,
             Participant.fio_norm,
+            Participant.vk_url_norm,
             Attempt.status,
             Attempt.score,
             Attempt.total_time_ms,
@@ -815,7 +816,7 @@ async def export_csv(quiz_id: int, db: AsyncSession = Depends(get_db)):
     def iter_csv():
         buf = StringIO()
         w = csv.writer(buf)
-        w.writerow(["attempt_id", "participant_id", "fio",  "status", "score", "total_time_ms", "started_at", "finished_at"])
+        w.writerow(["attempt_id", "participant_id", "fio", "vk_url", "status", "score", "total_time_ms", "started_at", "finished_at"])
         yield buf.getvalue()
         buf.seek(0)
         buf.truncate(0)
