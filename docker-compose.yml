@@ -3,27 +3,18 @@ services:
     build:
       context: ./backend
     env_file:
-      - ./backend/.env
+      - ./backend/.env.prod
     environment:
       DATABASE_URL: sqlite+aiosqlite:///./data/quiz.db
-      ENVIRONMENT: dev
-      COOKIE_SECURE: "false"
-      FRONTEND_ORIGINS: "http://localhost,http://127.0.0.1"
+      ENVIRONMENT: prod
+      COOKIE_SECURE: "true"
+      FRONTEND_ORIGINS: "http://localhost,http://127.0.0.1, http://pbiritrtf"
     volumes:
       - backend_data:/app/data
     expose:
       - "8000"
     ports:
       - "8000:8000"
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    depends_on:
-      - backend
-    ports:
-      - "80:80"
 
 volumes:
   backend_data:
