@@ -1,13 +1,16 @@
+# Production-only Docker setup.
+# Development is expected to run locally without Docker.
 services:
   backend:
     build:
       context: ./backend
     env_file:
-      - ./backend/.env
+      - ./backend/.env.prod
     volumes:
       - backend_data:/app/data
     expose:
       - "8000"
+    restart: unless-stopped
 
   frontend:
     build:
@@ -17,6 +20,7 @@ services:
       - backend
     ports:
       - "80:80"
+    restart: unless-stopped
 
 volumes:
   backend_data:
